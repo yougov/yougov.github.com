@@ -1,0 +1,564 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>Scaling Python for High-Load Web Sites</title>
+<!-- metadata -->
+<meta name="generator" content="S5" />
+<meta name="version" content="S5 1.1" />
+<meta name="presdate" content="20050728" />
+<meta name="author" content="Eric A. Meyer" />
+<meta name="company" content="Complex Spiral Consulting" />
+<!-- configuration parameters -->
+<meta name="defaultView" content="slideshow" />
+<meta name="controlVis" content="hidden" />
+<!-- style sheet links -->
+<link rel="stylesheet" href="ui/default/slides.css" type="text/css" media="projection" id="slideProj" />
+<link rel="stylesheet" href="ui/default/outline.css" type="text/css" media="screen" id="outlineStyle" />
+<link rel="stylesheet" href="ui/default/print.css" type="text/css" media="print" id="slidePrint" />
+<link rel="stylesheet" href="ui/default/opera.css" type="text/css" media="projection" id="operaFix" />
+<!-- S5 JS -->
+<script src="ui/default/slides.js" type="text/javascript"></script>
+</head>
+<body>
+
+<div class="layout">
+<div id="controls"><!-- DO NOT EDIT --></div>
+<div id="currentSlide"><!-- DO NOT EDIT --></div>
+<div id="header">
+<img src="images/pmx_logo.png" style="display:block;position:fixed;right:100px;top:2px" />
+</div>
+<div id="footer">
+<h1>PyCon 2007 | Addison, TX</h1>
+<h2>Scaling Python for High-Load Web Sites</h2>
+<img src="images/dots.png" style="display:block;position:fixed;right:100px;bottom:22px" />
+</div>
+
+</div>
+
+
+<div class="presentation">
+
+<div class="slide">
+<h1>Scaling Python for High-Load Web Sites</h1>
+<h3>David Shoemaker &amp; Jamie Turner</h3>
+<h4>Polimetrix, Inc.</h4>
+	<div class="handout">
+<pre>
+At Polimetrix we conduct surveys and political polls on the web at 
+pollingpoint.com.  As such, our traffic increases significantly at 
+election time. As the 2006 election approached, we realized that
+our web traffic would soon be about 10x what it normally is. We
+set about making sure our systems could handle that load. Today
+we want to share some things we learned during this process.
+</pre>
+	</div>
+</div>
+
+
+<div class="slide">
+<h1>The Paradox of Choice</h1>
+<p>There are a lot of freakin' web frameworks...</p>
+<div align="center"><img src="images/fws.png" style="margin-top:-30px" /></div>
+	<div class="handout">
+<pre>
+It's an interesting--and great--time to be a python web developer..
+A few years ago web frameworks were largely underdeveloped
+and undocumented. Now we have mountains of frameworks and tools
+available, many with excellent documentation and very active
+user communities.
+
+New ideas emerge every day about developing websites
+in more elegant, more reusable, more efficient ways.  And with each of
+these ideas, dozens more frameworks are born.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>The Paradox of Choice</h1>
+<p>... and these are just the ones with cool logos.</p>
+<div align="center"><img src="images/fws.png" style="margin-top:-30px" /></div>
+	<div class="handout">
+<pre>
+...
+in fairness, we were going to just list all the ones w/out
+cool logos, but this is only a 25' screen.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>All that Aside...</h1>
+<p style="text-align: center; margin-top: 150px">Let's focus on methods, not web frameworks</p>
+	<div class="handout">
+<pre>
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>Fast Enough</h1>
+<p>How fast is fast enough?</p>
+<ul class="incremental">
+<li>It bears repeating: don't prematurely optimize</li>
+<li>Don't guess, know</li>
+<li>Always focus on one "pinch point" at a time</li>
+</ul>
+	<div class="handout">
+<pre>
+Premature optimization is the root of all evil. All optimizations should
+be based on an observed deficiency and should target a specific 
+bottleneck in the application.  Good logging and load testing are required
+to diagnose performance issues.  It is much easier to verify that an 
+optimization works if one problem is addressed at a time, in serial.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>This isn't Fast Enough</h1>
+<p>Oh.  Okay, then.</p>
+</div>
+
+<div class="slide">
+<h1>Well how fast is "Fast"?</h1>
+<ul class="incremental">
+<li>Static: 4000, dynamic (python): 400, db: 40</li>
+<li>Sustained 40 req/s is 3.4m pages/day</li>
+<li>Hundreds to low thousands of dynamic page views 
+is usually Good Enough&trade;</li>
+<li>1000+ pages/s (86.4M pages/day) is a "caviar problem"</li>
+</ul>
+	<div class="handout">
+<pre>
+ * Note about "orders of magnitude" rule of thumb
+ * Faster than 1000+ pages/s is out of scope for this talk, because
+   it right at the outer limit of what very, very good single machine
+   can do with an RDBMS.  (That gets into db replicates/clusters, 
+   reads vs. writes, database partitioning, etc)
+ * Maybe refer to brad@lj's talks for more on that (perl, but 
+   we'll let that slide)
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>But "Python Can't Scale"!</h1>
+<p style="text-align: center; margin-top: 20px">
+Scaling isn't about languages, it's about:
+</p>
+<ul class="incremental">
+<li>Don't Repeat Yourself</li>
+<li>Shared Nothing</li>
+</ul>
+	<div class="handout">
+<pre>
+ We've tried to distill the process down to a couple of main ideas.
+ Many of the optimization decisions we make are based on these two
+ principles.
+ For our demo we will employ a few open source tools. You might choose
+ to use other tools, proprietary or open source.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>The Example Application</h1>
+<p style="text-align: center; margin-top: 150px; font-size: 60px">
+Flickr Killr
+</p>
+	<div class="handout">
+<pre>
+Show the app in a web browser (CGI version).
+We put together a tiny web application that we will use to demonstrate 
+and benchmark some of the methods we're discussing today. It's a 
+database-backed, dynamically generated page that includes several static
+files. The application looks kind of like photo organizing software 
+(hence the name).  We've populated the database with over 100k users and 
+over 1 million photos.
+We have created a benchmarker script that simulates a browser requesting
+this page. It makes requests to a list of URLs in rapid succession,
+and is multithreaded to simulate concurrency. The benchmarker then
+outputs some interesting stats, such as req/sec and average req time.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>Flickr-Killr-0.1-py2.5.egg</h1>
+<p style="text-align: center; margin-top: 30px; margin-bottom: 0; font-size: 30px">
+Flickr Killr 0.1
+<br/><span style="font-size: 15px">The CGI Strawman</span>
+</p>
+<img src="images/v01.png" style="display:block;margin:0 auto;padding:0" />
+	<div class="handout">
+<pre>
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>Flickr-Killr-0.1-py2.5.egg</h1>
+<p>Version 0.1 Architecture</p>
+<img src="images/pc_cgi_v1.png" />
+	<div class="handout">
+<pre>
+The web server invokes the Python interpreter and runs the CGI script.
+The script prints its output to stdout, which is then written back to the
+client as an HTTP response.
+We realize that this is a somewhat outdated architecture, but PHP coders
+work with only marginally better systems on a daily basis.
+Do some benchmarking.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>Flickr-Killr-0.1-py2.5.egg</h1>
+<p>What's wrong with this picture?</p>
+<ul class="incremental">
+	<li>The Python interpreter is started for each request</li>
+	<li>
+	All resources are initialized from scratch for each request
+	</li>
+	<li>
+	<code>
+	import psycopg2<br />
+	conn = psycopg2.connect(database='pycon',host='localhost')
+	</code>
+	</li>
+</ul>
+	<div class="handout">
+<pre>
+There is some startup cost associated with the interpreter itself
+and loading the modules needed by the application.
+Things like database connections, parsed page templates, and other
+application-specific initialization can, and should, live longer
+than one request.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>Flickr-Killr-0.1-py2.5.egg</h1>
+<p>Let's remedy some of these issues</p>
+<ul class="incremental">
+	<li>Run Python web server</li>
+	<li>Make one database connection per thread, instead of per request</li>
+</ul>
+	<div class="handout">
+<pre>
+With the long-running Python process we can do all initialization up
+front when the server starts.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>Flickr-Killr-0.1-py2.5.egg</h1>
+<p>Other options</p>
+<ul class="incremental">
+	<li>FastCGI</li>
+	<li>Other Python web servers (snakelets, twisted.web, RhubarbTart...)</li>
+	<li>Apache/mod_python</li>
+</ul>
+	<div class="handout">
+<pre>
+There are a few different multi-programming models to consider here. In
+general the threaded model can handle more concurrent connections than
+the multiprocess model, and async can handle more than threaded. However,
+concurrent connections is very often not the bottleneck. Other factors
+should influence this decision. The methods we're trying to hilight in 
+this talk apply no matter which model you choose.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>flickr-killr-users@flickrkillr.org</h1>
+<p style="text-align: center; margin-top: 30px; margin-bottom: 0; font-size: 30px">
+Flickr Killr 0.2
+<br/><span style="font-size: 15px">A slice of CherryPy</span>
+</p>
+<img src="images/v02.png" style="display:block;margin:0 auto;padding:0" />
+	<div class="handout">
+<pre>
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>flickr-killr-users@flickrkillr.org</h1>
+<p>Version 0.2 Architecture</p>
+<img src="images/pc_cgi_v2.png" />
+	<div class="handout">
+<pre>
+
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>flickr-killr-users@flickrkillr.org</h1>
+<p>What's wrong with this picture?</p>
+<ul class="incremental">
+	<li>The GIL: Global Interpreter Lock</li>
+	<li>Sessions in the database</li>
+	<li><code>
+	cur.execute('select username from users where id = %s', (userid,))
+	</code></li>
+</ul>
+	<div class="handout">
+<pre>
+This is already a huge improvement over the CGI version, but it's far
+from perfect. For one, we're running this on a dual core machine, but 
+Python's GIL prevents us from using the second core.
+Another problem worth mentioning is that we are effectively fetching
+the session from the database for each request. Since the session is
+such an frequently-accessed resource, we prefer a more efficient session
+store. We're not going to demo this today, but Jamie has written a
+network-bound session daemon called Pear, which you can check out in
+the cheese shop.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>flickr-killr-users@flickrkillr.org</h1>
+<p>Let's remedy some of these issues</p>
+<ul class="incremental">
+	<li>Run two instances of CherryPy</li>
+	<li>Use a load balancer: nginx</li>
+	<li>Make sure we adhere to Shared Nothing&trade;</li>
+</ul>
+	<div class="handout">
+<pre>
+We can run two (or more) instances of CherryPy to take advantage of
+multi-core and multi-cpu architectures.
+For your load balancer you almost certainly want to use the async MPM.
+It has to deal with a lot of concurrent connections, and it has to do
+so quickly.  
+Shared Nothing means that each node is independent and doesn't keep any
+application state locally. In the context of a web application this is
+important because consecutive requests could be distributed to different
+servers.
+There is an added benefit of putting nginx out in front of CherryPy. 
+Often the response needs to be slowly trickled back to a client on a low
+bandwidth connection. With this setup, CherryPy can send it's response
+to nginx very quickly across the local network (or on localhost) and
+nginx can keep tons of connections open to the slow clients, or even
+idle, between-request keepalive clients.
+The CherryPy threads are free to handle new requests.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>flickr-killr-users@flickrkillr.org</h1>
+<p>Other options</p>
+<ul class="incremental">
+	<li>Run CherryPy in Apache with mod_python</li>
+</ul>
+	<div class="handout">
+<pre>
+The multiprocess MPM on the application server also takes advantage of 
+multi-core and multi-CPU machines. This setup is not as memory efficient, 
+however, and we'll need to get a reverse proxy involved anyway when 
+we want to involve different physical machines.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>www.flickrkillr-mashups.com</h1>
+<p style="text-align: center; margin-top: 30px; margin-bottom: 0; font-size: 30px">
+Flickr Killr 0.3
+<br/><span style="font-size: 15px">Have your CherryPy and eat it too</span>
+</p>
+<img src="images/v03.png" style="display:block;margin:0 auto;padding:0" />
+	<div class="handout">
+<pre>
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>www.flickrkillr-mashups.com</h1>
+<p>Version 0.3 Architecture</p>
+<img src="images/pc_cgi_v3.png" />
+	<div class="handout">
+<pre>
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>www.flickrkillr-mashups.com</h1>
+<p>What's wrong with this picture?</p>
+<ul class="incremental">
+	<li>Static files are being read from disk every time</li>
+	<li>They're being read and written by Python</li>
+	<li>
+	<code>
+	photos = db.execute('''<br />
+select p.id, p.filename, p.description<br />
+from users u join photos p on u.id = p.userid<br />
+where p.userid = %s''', (userid,)).fetchall()</code></li>
+</ul>
+	<div class="handout">
+<pre>
+OS disk cache will help this problem, but it is still inefficient to have
+a Python process reading and writing this data. Our total number of 
+threads is finite, so we only want them working on generating dynamic 
+content. This is another problem best solved by an asynchronous server.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>www.flickrkillr-mashups.com</h1>
+<p>Let's remedy some of these issues</p>
+<ul class="incremental">
+	<li>Put the static files in a memory cache: memcached</li>
+	<li>Tell nginx how to find them in memcached</li>
+</ul>
+	<div class="handout">
+<pre>
+For this demo we have written a CherryPy tool that inserts static
+content into memcached as it is requested. memcached keeps the files
+in memory and can handle tens of thousands of requests per second.
+We will instruct nginx to look for files there first, and fall back
+to CherryPy if the file is not found in the cache. The vast
+majority of requests for static content will never even be seen
+by CherryPy.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>www.flickrkillr-mashups.com</h1>
+<p>Other options</p>
+<ul class="incremental">
+	<li>Squid and other reverse-proxy caches</li>
+	<li>Use a fast web server like lighttpd, if your deployment includes it</li>
+</ul>
+	<div class="handout">
+<pre>
+Another caching option is to put a web cache out in front of the site
+that automatically caches certain resources and intercepts requests as
+they come in. This method makes your application completely unaware that
+the cache even exists.
+If you choose to use lighttpd as your reverse proxy and load balancer,
+it might make sense to just let lighttpd serve static content from disk.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>NASDAQ: FLKL</h1>
+<p style="text-align: center; margin-top: 30px; margin-bottom: 0; font-size: 30px">
+Flickr Killr 0.4
+<br/><span style="font-size: 15px">Cache money</span>
+</p>
+<img src="images/v04.png" style="display:block;margin:0 auto;padding:0" />
+	<div class="handout">
+<pre>
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>NASDAQ: FLKL</h1>
+<p>Version 0.4 Architecture</p>
+<img src="images/pc_cgi_v4.png" />
+	<div class="handout">
+<pre>
+Story about pollster.com running on a blade, database and all.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>NASDAQ: FLKL</h1>
+<p>What's wrong with this picture?</p>
+<ul class="incremental">
+	<li>We'll leave that as an exercise for the audience members</li>
+</ul>
+	<div class="handout">
+<pre>
+
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>NASDAQ: FLKL</h1>
+<p style="text-align: center; margin-top: 30px; margin-bottom: 0; font-size: 30px">
+In summary
+<br/><span style="font-size: 15px"></span>
+</p>
+<img src="images/v05.png" style="display:block;margin:0 auto;padding:0" />
+	<div class="handout">
+<pre>
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>NASDAQ: FLKL</h1>
+<p>Don't forget to index</p>
+<ul class="incremental">
+	<li>A missing index in the database can trump all other optimizations</li>
+	<li>Turn on query performance logging to see which queries are taxing your RDBMS</li>
+</ul>
+	<div class="handout">
+<pre>
+Version 0.4 has provided a huge improvement over the CGI 
+version, but we could quickly be looking at version 0.1 performance if 
+we don't have our database properly indexed. In this case, the userid 
+column of the photos table is the crucial column.
+Drop the index, run the benchmarking, recreate the index.
+Story about how a missing index in Gryphon caused our RDBMS
+to be CPU bound and we thought there was no way we could handle election 
+load.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<h1>Google Photo Organizr</h1>
+<p style="margin: 80px auto">Automating deployment will certainly be worth your time</p>
+	<div class="handout">
+<pre>
+It gets <em>really</em> annoying after just 2 or 3 machines are
+involved.
+Jamie wrote a really slick system for deploying Python apps on
+many machines. It was a fairly big project, but it has paid
+huge dividends. Being able to manage deployment from one
+machine and quickly add/upgrade nodes is key.
+</pre>
+	</div>
+</div>
+
+<div class="slide">
+<p>Thanks for listening</p>
+<p>All demo code and config files at <a href="http://www.polimetrix.com/pycon/demo.tar.gz">http://www.polimetrix.com/pycon/demo.tar.gz</a></p>
+<p>Question time</p>
+	<div class="handout">
+<pre>
+Jamie wrote a really slick system for deploying Python apps on
+many machines. It was a fairly big project, but it has paid
+huge dividends. Being able to manage deployment from one
+machine and quickly add/upgrade nodes is key.
+</pre>
+	</div>
+</div>
+
+
+</div>
+
+</body>
+</html>
